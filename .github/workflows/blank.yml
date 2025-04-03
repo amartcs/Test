@@ -23,8 +23,10 @@ jobs:
       # Runs a single command using the runners shell
       - name: Run a one-line script
         run: |          
-          curl -X POST "https://6f26792atrial.authentication.us10.hana.ondemand.com/oauth/token" \
+          TOKEN=$(curl -X POST "https://6f26792atrial.authentication.us10.hana.ondemand.com/oauth/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=client_credentials" \
             -d 'client_id=sb-da4238df-5d84-4344-9610-6acf626ae0ac!b422594|it-rt-6f26792atrial!b26655' \
-            -d 'client_secret=c25209a2-b9a6-4df7-9c49-e7b997e92bac$qrVgQQrhyeXhDWNOmA_gkMRMx9mbX1TwA58yCzK-0kI=' |jq -r '.access_token'
+            -d 'client_secret=c25209a2-b9a6-4df7-9c49-e7b997e92bac$qrVgQQrhyeXhDWNOmA_gkMRMx9mbX1TwA58yCzK-0kI=' |jq -r '.access_token')
+
+            echo $TOKEN
