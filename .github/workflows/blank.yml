@@ -40,7 +40,7 @@ jobs:
         --data "grant_type=client_credentials" | jq -r '.access_token')
 
         echo "ACCESS_TOKEN1=$ACCESS_TOKEN" >> $GITHUB_ENV
-        echo "::add-mask::$ACCESS_TOKEN"
+        #echo "::add-mask::$ACCESS_TOKEN"
         
         
     - name: Fetch X-CSRF-Token
@@ -51,7 +51,7 @@ jobs:
         --header 'X-CSRF-Token: fetch' -I | grep -i "X-CSRF-Token" | awk '{print $2}')
         
         echo "CSRF_TOKEN1=$CSRF_TOKEN" >> $GITHUB_ENV
-        echo "::add-mask::$CSRF_TOKEN"
+        #echo "::add-mask::$CSRF_TOKEN"
               
 
     - name: Create Upload Iflow
