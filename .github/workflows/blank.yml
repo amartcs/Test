@@ -1,32 +1,73 @@
 # This is a basic workflow to help you get started with Actions
 
-name: SAP CI
+name: CPI-Demo
 
-# Controls when the workflow will run
+env:
+  GITHUB_ACCESS_TOKEN: '${{ secrets.ACTION_GITHUB_ACCESS_TOKEN }}'
+  GITHUB_API_URL_REST: 'https://github.deutsche-boerse.de/api/v3'
+  OAUTH_URL: "https://oauthasservices-a1d40cbe0.hana.ondemand.com/oauth2/api/v1/token"
+  IFLOW_URL: "https://y0057-tmn.hci.eu1.hana.ondemand.com:443/api/v1"
+  SAP_OAUTH_AUTHORIZATION: ${{ secrets.SAP_OAUTH_AUTHORIZATION }}
+  PACKAGE_ID: "TM053_Flow_TESTs"
+  
 on:
-    
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+  push:
+    tags:
+      - "v?[0-9]+.[0-9]+.[0-9]+"
+    paths-ignore:
+    - ".github/workflows/**"
+  workflow_dispatch: 
+  
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: |          
-          TOKEN=$(curl -X POST "https://6f26792atrial.authentication.us10.hana.ondemand.com/oauth/token" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "grant_type=client_credentials" \
-            -d 'client_id=sb-da4238df-5d84-4344-9610-6acf626ae0ac!b422594|it-rt-6f26792atrial!b26655' \
-            -d 'client_secret=c25209a2-b9a6-4df7-9c49-e7b997e92bac$qrVgQQrhyeXhDWNOmA_gkMRMx9mbX1TwA58yCzK-0kI=' |jq -r '.access_token')
+    - name: Create zip file
+      run: zip -r release-${{ github.run_number }}.zip . -x ".git/*" -x ".github/*" -x "README.MD"
+    
+    - name: Convert ZIP to Base64
+      run: base64 release-${{ github.run_number }}.zip > release-${{ github.run_number }}.zip.b64
 
-            echo $TOKEN
+    - name: Fetch Access Token
+      run: |
+        ACCESS_TOKEN=$(curl -s -X POST $OAUTH_URL  \
+        --header "Authorization: Basic $SAP_OAUTH_AUTHORIZATION" \
+        --header 'Accept: application/json' \
+        --data "grant_type=client_credentials" | jq -r '.access_token')
+
+        echo "ACCESS_TOKEN1=$ACCESS_TOKEN" >> $GITHUB_ENV
+        echo "::add-mask::$ACCESS_TOKEN"
+        
+        
+    - name: Fetch X-CSRF-Token
+      run: |
+        CSRF_TOKEN=$(curl -s -X GET ${{ env.IFLOW_URL }}/IntegrationDesigntimeArtifacts \
+        --header "Authorization: Bearer ${{ env.ACCESS_TOKEN1 }}" \
+        --header 'Accept: application/json' \
+        --header 'X-CSRF-Token: fetch' -I | grep -i "X-CSRF-Token" | awk '{print $2}')
+        
+        echo "CSRF_TOKEN1=$CSRF_TOKEN" >> $GITHUB_ENV
+        echo "::add-mask::$CSRF_TOKEN"
+              
+
+    - name: Create Upload Iflow
+      run: |
+        curl -X PUT ${{ env.IFLOW_URL }}/IntegrationDesigntimeArtifacts \
+        --header "Authorization: Bearer ${{ env.ACCESS_TOKEN1 }}" \
+        --header "X-CSRF-Token: ${{ env.CSRF_TOKEN1 }}" \
+        --header 'Content-Type: application/json' \
+        --data '{
+          "Id": "${{ github.event.repository.name }}",
+          "Name": "${{ github.event.repository.name }}",
+          "PackageId": "${{ env.PACKAGE_ID }}",          
+          "ArtifactContent": "release-${{ github.run_number }}.zip.b64"          
+          }'
+
+        
+
+
+  
