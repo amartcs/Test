@@ -57,8 +57,8 @@ jobs:
     - name: Create Upload Iflow
       run: |
         curl -X PUT ${{ env.IFLOW_URL }}/IntegrationDesigntimeArtifacts \
-        --header "Authorization: Bearer ${{ env.ACCESS_TOKEN1 }}" \
-        --header "X-CSRF-Token: ${{ env.CSRF_TOKEN1 }}" \
+        --header 'Authorization: Bearer ${{ env.ACCESS_TOKEN1 }}' \
+        --header 'X-CSRF-Token: $CSRF_TOKEN1' \
         --header 'Content-Type: application/json' \
         --data '{
           "Id": "${{ github.event.repository.name }}",
