@@ -28,7 +28,11 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Create zip file
-      run: zip -r "{{ env.IFLOW_NAME }}.zip" . -x ".git/*" -x ".github/*"
+      run: |
+        echo "creating zip"
+        zip -r "{{ env.IFLOW_NAME }}.zip" . -x ".git/*" -x ".github/*"
+        echo "zip creatd as name {{ env.IFLOW_NAME }}.zip"
+        ls -l
     - name: extracting zip
       run: |
         echo "unzipping {{ env.IFLOW_NAME }}.zip"
