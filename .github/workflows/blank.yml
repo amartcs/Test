@@ -30,14 +30,14 @@ jobs:
     - name: Create zip file
       run: |
         echo "creating zip"
-        zip -r "{{ env.IFLOW_NAME }}.zip" . -x ".git/*" -x ".github/*"
-        echo "zip creatd as name {{ env.IFLOW_NAME }}.zip"
+        zip -r "{{ env.IFLOW_NAME }}".zip . -x ".git/*" -x ".github/*"
+        echo "zip creatd as name "{{ env.IFLOW_NAME }}".zip"
         ls -l
     - name: extracting zip
       run: |
-        echo "unzipping {{ env.IFLOW_NAME }}.zip"
-        unzip "{{ env.IFLOW_NAME }}.zip" -o "{{ env.IFLOW_NAME }}.zip"
-        echo "zip extracted as name {{ env.IFLOW_NAME }}.zip"
+        echo "unzipping "{{ env.IFLOW_NAME }}".zip"
+        unzip "{{ env.IFLOW_NAME }}".zip -o "{{ env.IFLOW_NAME }}"
+        echo "zip extracted as name {{ env.IFLOW_NAME }}"
         ls -l
     
     - name: Convert ZIP to Base64
