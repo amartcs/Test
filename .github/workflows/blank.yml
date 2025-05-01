@@ -9,6 +9,7 @@ env:
   IFLOW_URL: "https://y0057-tmn.hci.eu1.hana.ondemand.com:443/api/v1"
   SAP_OAUTH_AUTHORIZATION: ${{ secrets.SAP_OAUTH_AUTHORIZATION }}
   PACKAGE_ID: "TM053_Flow_TESTs"
+  IFLOW_NAME: "My Iflow for testing_name_with space"
   
 on:
   push:
@@ -27,7 +28,13 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Create zip file
-      run: zip -r release-${{ github.run_number }}.zip . -x ".git/*" -x ".github/*" -x "README.MD"
+      run: zip -r "{{ env.IFLOW_NAME }}.zip" . -x ".git/*" -x ".github/*"
+    - name: extracting zip
+      run: |
+        echo "unzipping {{ env.IFLOW_NAME }}.zip"
+        unzip "{{ env.IFLOW_NAME }}.zip" -o "{{ env.IFLOW_NAME }}.zip"
+        echo "zip extracted as name {{ env.IFLOW_NAME }}.zip"
+        ls -l
     
     - name: Convert ZIP to Base64
       run: base64 release-${{ github.run_number }}.zip > release-${{ github.run_number }}.zip.b64
