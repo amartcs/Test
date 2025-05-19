@@ -25,33 +25,13 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Create zip file
-      run: |
-        echo "creating zip"
-        zip -r "${{ env.IFLOW_NAME }}.zip" . -x ".git/*" -x ".github/*"
-        echo "zip creatd as name ${{ env.IFLOW_NAME }}.zip"
-        ls -l
-    - name: extracting zip
-      run: |
-        echo "unzipping ${{ env.IFLOW_NAME }}.zip"
-        unzip "${{ env.IFLOW_NAME }}.zip" -d "${{ env.IFLOW_NAME }}"
-        echo "zip extracted as name ${{ env.IFLOW_NAME }}"
-        ls -l
-    
-    - name: Convert ZIP to Base64
-      run: base64 release-${{ github.run_number }}.zip > release-${{ github.run_number }}.zip.b64
+      uses: actions/checkout@v4  
 
     - name: Fetch Access Token
-      run: |
-        ACCESS_TOKEN=$(curl -s -X POST $OAUTH_URL  \
-        --header "Authorization: Basic $SAP_OAUTH_AUTHORIZATION" \
-        --header 'Accept: application/json' \
-        --data "grant_type=client_credentials" | jq -r '.access_token')
-
-        echo "ACCESS_TOKEN1=$ACCESS_TOKEN" >> $GITHUB_ENV
-        #echo "::add-mask::$ACCESS_TOKEN"
+      uses: ./.github/actions/fetch-token  # or your published repo
+      with:
+        oauth_url: ${{ env.OAUTH_URL }}
+        base64_auth: ${{ secrets.SAP_OAUTH_AUTHORIZATION }}
         
         
     - name: Fetch X-CSRF-Token
