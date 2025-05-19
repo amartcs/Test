@@ -1,0 +1,12 @@
+name: 'SAP Token Generator'
+description: 'Generate OAuth token from SAP and export it'
+inputs:
+  oauth_url:
+    description: 'OAuth Token URL'
+    required: true
+  base64_auth:
+    description: 'Base64 encoded client_id:secret'
+    required: true
+runs:
+  using: 'node20'
+  main: 'index.js'
