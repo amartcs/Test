@@ -20,16 +20,14 @@ const axios = require('axios');
     const accessToken = response.data.access_token;
     if (!accessToken) throw new Error("No access_token found in response.");
 
-    console.log(`Access Token: ${accessToken}`);
+    //console.log(`Access Token: ${accessToken}`);
 
     // Mask the token in logs
     core.setSecret(accessToken);
-    
+
     // Set the access token as a GitHub Environment Variable
-    core.exportVariable('SAP_ACCESS_TOKEN', accessToken);
+    core.exportVariable('TOKEN', accessToken);
     
-    // Also return as output if needed
-    core.setOutput("access_token", accessToken);
     
   } catch (error) {
     core.setFailed(`Action failed: ${error.message}`);
