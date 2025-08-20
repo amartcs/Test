@@ -1,0 +1,139 @@
+name: Integration build
+'on':
+  workflow_call:
+    secrets:
+      ACTION_GITHUB_ACCESS_TOKEN:
+        required: true
+      AZURE_TEAMS_NOTIFIER_URL:
+        required: true
+      CICD_SONAR_LOGIN:
+        required: true
+      CICD_BLACKDUCK_API_TOKEN:
+        required: true
+      HPFORTIFY_CTRL_TOKEN:
+        required: true
+      HPFORTIFY_CI_TOKEN:
+        required: true
+      HPFORTIFY_DOWNLOAD_TOKEN:
+        required: true
+      HPFORTIFY_UPLOAD_TOKEN:
+        required: true
+env:
+  PR_NUMBER: '${{ github.event.pull_request.number }}'
+  RUN_ID: '${{ github.run_id }}'
+  GITHUB_ACCESS_TOKEN: '${{ secrets.ACTION_GITHUB_ACCESS_TOKEN }}'
+  GITHUB_API_URL_REST: 'https://github.deutsche-boerse.de/api/v3'
+  GITHUB_API_URL_GRAPHQL: 'https://github.deutsche-boerse.de/api/graphql'
+  AZURE_API_URL: '${{ secrets.AZURE_TEAMS_NOTIFIER_URL }}'
+jobs:
+  checkChangedFiles:
+    runs-on: ui5
+    steps:
+      - name: Get changed files
+        id: getChangedFiles
+        uses: ccfc/action-getChangedFiles@v1.0
+      - name: Check changed files for forbidden edits
+        id: checkChangedFiles
+        uses: ccfc/action-checkChangedFiles@v1.0
+        with:
+          allChanged: '${{ steps.getChangedFiles.outputs.all }}'
+      - name: Notify Teams if checkChangedFiles failed
+        id: notifyCheckChangedFailed
+        if: always() && steps.checkChangedFiles.outcome == 'failure'
+        uses: ccfc/action-TeamsNotifier@v1.0
+        with:
+          type: check
+          status: forbidden-changes
+  sonar-scan:
+    runs-on: ui5
+    outputs:
+      payload: '${{ steps.checkSonarScanResult.outputs.payload }}'
+    needs:
+      - checkChangedFiles
+    env:
+      SONAR_HOST: 'https://sonarp1.deutsche-boerse.de/'
+      SONAR_LOGIN: '${{ secrets.CICD_SONAR_LOGIN }}'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - run: >-
+          docker run -e SONAR_HOST_URL=$SONAR_HOST -e SONAR_LOGIN=$SONAR_LOGIN
+          -e BRANCH_NAME=PR_$PR_NUMBER --user="$(id -u):$(id -g)" -v
+          "$(pwd):/usr/src" --rm sonar-scanner
+      - name: Check Sonar scan results
+        id: checkSonarScanResult
+        uses: ccfc/action-checkSonarScanResult@v1.0
+#   blackduck-scan:
+#     runs-on: ui5
+#     outputs:
+#      payload: '${{ steps.checkBlackduckScanResult.outputs.payload }}'
+#     needs:
+#      - checkChangedFiles
+#     env:
+#      BLACKDUCK_URL: 'https://blackduck.shrd.dbgcloud.io'
+#      BLACKDUCK_API_TOKEN: '${{ secrets.CICD_BLACKDUCK_API_TOKEN}}'
+#     steps:
+#      - name: Checkout
+#        uses: actions/checkout@v2
+#      - run: rm -rf node_modules
+#      - run: npm install
+#      - run: docker run -e BLACKDUCK_URL=$BLACKDUCK_URL -e BLACKDUCK_API_TOKEN=$BLACKDUCK_API_TOKEN -e GITHUB_REPOSITORY=$GITHUB_REPOSITORY -e DETECT_JAR_DOWNLOAD_DIR=/home/runner/synopsys-detect --user="$(id -u):$(id -g)" -v "$(pwd):/usr/src" -v "/home:/home" --rm blackduck-scanner
+#      - name: Check Blackduck scan results
+#        id: checkBlackduckScanResult
+#        uses: ccfc/action-checkBlackduckScanResult@v1.0
+  fortify-scan:
+    runs-on: ui5
+    outputs:
+      payload: '${{ steps.checkFortifyScanResult.outputs.payload }}'
+    needs:
+      - checkChangedFiles
+    env:
+      FORTIFY_URL_SSC: 'https://frpfofyssc01.oa.pnrad.net/ssc'
+      FORTIFY_URL_CTRL: 'https://frpfofyctr01.oa.pnrad.net/scancentral-ctrl'
+      HPFORTIFY_API_URL_REST: 'https://frpfofyssc01.oa.pnrad.net/ssc/api/v1'
+      HPFORTIFY_CTRL_TOKEN: '${{ secrets.HPFORTIFY_CTRL_TOKEN }}'
+      HPFORTIFY_CI_TOKEN: '${{ secrets.HPFORTIFY_CI_TOKEN }}'
+      HPFORTIFY_DOWNLOAD_TOKEN: '${{ secrets.HPFORTIFY_DOWNLOAD_TOKEN }}'
+      HPFORTIFY_UPLOAD_TOKEN: '${{ secrets.HPFORTIFY_UPLOAD_TOKEN }}'
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      NO_PROXY: "*"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Get the project id
+        id: getID
+        uses: ccfc/action-getAppID@v1.0
+      - name: Display app ID
+        run: 'echo ${{ steps.getID.outputs.app-id }}'
+      - name: Run HP Fortify scan
+        run: |
+          docker run \
+             -e APPLICATION_ID=${{ steps.getID.outputs.app-id }} \
+             -e FORTIFY_URL_SSC=$FORTIFY_URL_SSC \
+             -e FORTIFY_URL_CTRL=$FORTIFY_URL_CTRL \
+             -e HPFORTIFY_API_URL_REST=$HPFORTIFY_API_URL_REST \
+             -e HPFORTIFY_CTRL_TOKEN=$HPFORTIFY_CTRL_TOKEN \
+             -e HPFORTIFY_CI_TOKEN=$HPFORTIFY_CI_TOKEN \
+             -e HPFORTIFY_DOWNLOAD_TOKEN=$HPFORTIFY_DOWNLOAD_TOKEN \
+             -e HPFORTIFY_UPLOAD_TOKEN=$HPFORTIFY_UPLOAD_TOKEN \
+             -v "$(pwd):/usr/src" \
+             -v "/home/runner/Fortify/Fortify_SCA_24.2.1:/usr/fortify" \
+             --rm \
+             cicd-fortifyscanner:2.0
+      - name: checkFortifyScanResult
+        id: checkFortifyScanResult
+        uses: ccfc/action-checkFortifyScanResult@v3.0
+        with:
+          appID: '${{ steps.getID.outputs.app-id }}'
+#  notify-teams:
+#    runs-on: ui5
+#    needs: [sonar-scan, fortify-scan]
+#    if: always() && (needs.sonar-scan.result && needs.fortify-scan.result)
+#    steps:
+#      - uses: ccfc/action-TeamsNotifier@v1.0
+#        with:
+#          type: "check"
+#          sonar: ${{ needs.sonar-scan.outputs.payload }}
+#          blackduck: "{}"
+#          fortify: ${{ needs.fortify-scan.outputs.payload }}
