@@ -85,28 +85,45 @@ jobs:
               sha=$(gh pr view $pr_number --json headRefOid -q '.headRefOid')
               echo "Commit SHA for PR: $sha"
 
-              # Poll workflow status until complete
-              echo "Waiting for workflow run to complete for $repo..."
-              status="queued"
-              conclusion=""
+              # Poll workflow status until Integration build completes
+              echo "Waiting for 'Integration build' workflow run to complete for $repo..."
 
-              while [[ "$status" != "completed" ]]; do
+              status=""
+              conclusion=""
+              attempts=0
+              max_attempts=5   # try 5 times before skipping
+              found=false
+
+              while [[ "$status" != "completed" && $attempts -lt $max_attempts ]]; do
                 sleep 30
+                attempts=$((attempts+1))
+
                 run_info=$(curl -s -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
                   "https://api.github.com/repos/${ORG_NAME}/${repo}/commits/${sha}/check-runs")
-                
-                status=$(echo "$run_info" | jq -r '.check_runs[0].status')
-                conclusion=$(echo "$run_info" | jq -r '.check_runs[0].conclusion')
-                echo "Current status: $status | Conclusion: $conclusion"
+
+                # Filter only "Integration build" run
+                status=$(echo "$run_info" | jq -r '.check_runs[] | select(.name=="Integration build") | .status')
+                conclusion=$(echo "$run_info" | jq -r '.check_runs[] | select(.name=="Integration build") | .conclusion')
+
+                if [[ -n "$status" && "$status" != "null" ]]; then
+                  found=true
+                  echo "Integration build → Status: $status | Conclusion: $conclusion"
+                else
+                  echo "Integration build not found yet (attempt $attempts/$max_attempts)"
+                  status=""   # reset to ensure loop continues
+                fi
               done
 
-              if [[ "$conclusion" != "success" ]]; then
-                echo "Workflow failed for $repo, adding to $FAILED_REPOS_FILE"
+              if [[ "$found" == false ]]; then
+                echo "No Integration build run found for $repo after $max_attempts attempts. Skipping..."
+                echo "$repo" >> ../$FAILED_REPOS_FILE
+              elif [[ "$conclusion" != "success" ]]; then
+                echo "Integration build workflow failed for $repo ❌"
                 echo "$repo" >> ../$FAILED_REPOS_FILE
               else
-                echo "Workflow succeeded for $repo ✅"
+                echo "Integration build workflow succeeded for $repo ✅"
               fi
-
+              # Clean up cloned repo
               cd ..
               rm -rf $repo
 
