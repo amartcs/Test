@@ -34,76 +34,88 @@ jobs:
 
       - name: Get all repositories and create PRs
         run: |
-          # Set the path to your text file containing repository names to skip
           SKIP_REPOS_FILE="skip_repos.txt"
           FAILED_REPOS_FILE="failed_repos.txt"
-          
-          # Ensure the failed repos file is empty before the run
           > $FAILED_REPOS_FILE
 
-          # Check if the file exists
           if [ ! -f $SKIP_REPOS_FILE ]; then
             echo "Skip repos list file $SKIP_REPOS_FILE not found!"
             exit 1
           fi
 
-          # Read the list of repos to skip into an array
           mapfile -t skip_repos < $SKIP_REPOS_FILE
-
-          # Fetch all organization repositories
           repos=$(gh repo list $ORG_NAME --limit 500 --json name -q '.[].name')
 
-          # Loop through each repo and create a PR
           for repo in $repos; do
-            # Check if repo is in the skip list
             if [[ " ${skip_repos[@]} " =~ " $repo " ]]; then
               echo "Skipping $repo (listed in skip_repos.txt)"
-              continue  # Skip this repo and move to the next one
+              continue
             fi
 
             echo "Processing $repo..."
 
-            # Error handling: Continue on error
             {
-              # Get the default branch of the repository
               default_branch=$(gh repo view $ORG_NAME/$repo --json defaultBranchRef -q '.defaultBranchRef.name')
               echo "Default branch for $repo is $default_branch"
 
-              # Clone the repository
               gh repo clone $ORG_NAME/$repo
               cd $repo
 
-              # Setup Git user
               git config --global user.email "${GIT_EMAIL}"
               git config --global user.name "${GIT_USER}"
               git remote set-url origin https://x-access-token:${GITHUB_ACCESS_TOKEN}@${GITHUB_URL}/$ORG_NAME/$repo.git
 
-              # Create a new branch
               git checkout -b semiannual-update
-
-              # Make changes to files (e.g., update README or add a version tag)
               echo "Semiannual update - $(date)" >> README.md
               git add README.md
               git commit -m "Semiannual update"
 
-              # Remove the remote branch if it exists
               git push origin --delete semiannual-update || true
-
-              # Push the branch to the repository
               git push origin semiannual-update --force
 
-              # Create the PR, using the default branch as base
-              gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base $default_branch --head semiannual-update
+              # Create PR and capture PR URL
+              pr_url=$(gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base $default_branch --head semiannual-update --json url -q '.url')
+              echo "Created PR: $pr_url"
+
+              # Get PR number
+              pr_number=$(gh pr view $pr_url --json number -q '.number')
+              echo "PR number: $pr_number"
+
+              # Get commit SHA of the PR head
+              sha=$(gh pr view $pr_number --json headRefOid -q '.headRefOid')
+              echo "Commit SHA for PR: $sha"
+
+              # Poll workflow status until complete
+              echo "Waiting for workflow run to complete for $repo..."
+              status="queued"
+              conclusion=""
+
+              while [[ "$status" != "completed" ]]; do
+                sleep 30
+                run_info=$(curl -s -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
+                  "https://api.github.com/repos/${ORG_NAME}/${repo}/commits/${sha}/check-runs")
+                
+                status=$(echo "$run_info" | jq -r '.check_runs[0].status')
+                conclusion=$(echo "$run_info" | jq -r '.check_runs[0].conclusion')
+                echo "Current status: $status | Conclusion: $conclusion"
+              done
+
+              if [[ "$conclusion" != "success" ]]; then
+                echo "Workflow failed for $repo, adding to $FAILED_REPOS_FILE"
+                echo "$repo" >> ../$FAILED_REPOS_FILE
+              else
+                echo "Workflow succeeded for $repo ✅"
+              fi
 
               cd ..
-              rm -rf $repo # Clean up
+              rm -rf $repo
 
             } || {
               echo "Failed to process $repo, storing in $FAILED_REPOS_FILE."
               echo "$repo" >> $FAILED_REPOS_FILE
             }
+            done
 
-          done
       - name: Display Failed repo list
         run: |
           cat $FAILED_REPOS_FILE
