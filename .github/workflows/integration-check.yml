@@ -27,7 +27,7 @@ env:
   AZURE_API_URL: '${{ secrets.AZURE_TEAMS_NOTIFIER_URL }}'
 jobs:
   checkChangedFiles:
-    runs-on: ui5
+    runs-on: ubuntu-latest
     steps:
       - name: Get changed files
         id: getChangedFiles
@@ -45,7 +45,7 @@ jobs:
           type: check
           status: forbidden-changes
   sonar-scan:
-    runs-on: ui5
+    runs-on: ubuntu-latest
     outputs:
       payload: '${{ steps.checkSonarScanResult.outputs.payload }}'
     needs:
@@ -82,7 +82,7 @@ jobs:
 #        id: checkBlackduckScanResult
 #        uses: ccfc/action-checkBlackduckScanResult@v1.0
   fortify-scan:
-    runs-on: ui5
+    runs-on: ubuntu-latest
     outputs:
       payload: '${{ steps.checkFortifyScanResult.outputs.payload }}'
     needs:
