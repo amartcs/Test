@@ -30,7 +30,7 @@ jobs:
 
       - name: Authenticate GitHub CLI
         run: |
-          echo "${GIT_ACCESS_TOKEN}" | gh auth login --hostname "${GITHUB_URL}" --with-token
+          echo "${GITHUB_ACCESS_TOKEN}" | gh auth login --hostname "${GITHUB_URL}" --with-token
 
       - name: Get all repositories and create PRs
         run: |
@@ -63,7 +63,7 @@ jobs:
 
               git config --global user.email "${GIT_EMAIL}"
               git config --global user.name "${GIT_USER}"
-              git remote set-url origin https://x-access-token:${GIT_ACCESS_TOKEN}@${GITHUB_URL}/$ORG_NAME/$repo.git
+              git remote set-url origin https://x-access-token:${GITHUB_ACCESS_TOKEN}@${GITHUB_URL}/$ORG_NAME/$repo.git
 
               git checkout -b semiannual-update
               echo "Semiannual update - $(date)" >> README.md
@@ -92,7 +92,7 @@ jobs:
 
               while [[ "$status" != "completed" ]]; do
                 sleep 30
-                run_info=$(curl -s -H "Authorization: token ${GIT_ACCESS_TOKEN}" \
+                run_info=$(curl -s -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
                   "https://api.github.com/repos/${ORG_NAME}/${repo}/commits/${sha}/check-runs")
                 
                 status=$(echo "$run_info" | jq -r '.check_runs[0].status')
