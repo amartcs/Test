@@ -74,8 +74,8 @@ jobs:
               git push origin semiannual-update --force
 
               # Create PR and capture PR URL
-              pr_url=$(gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base $default_branch --head semiannual-update --json url -q '.url')
-              echo "Created PR: $pr_url"
+              pr_url=$(gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base "$default_branch" --head "semiannual-update")
+              echo "Created PR: $pr_url""
 
               # Get PR number
               pr_number=$(gh pr view $pr_url --json number -q '.number')
