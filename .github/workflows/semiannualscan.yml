@@ -14,7 +14,7 @@ env:
   
 jobs:
   create-pr:
-    runs-on: ubuntu
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
