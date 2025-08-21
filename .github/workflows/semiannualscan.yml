@@ -121,8 +121,7 @@ jobs:
                 fi
                 sleep 30
               fi
-            done
-
+            
               # Clean up cloned repo
               cd ..
               rm -rf $repo
