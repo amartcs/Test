@@ -12,7 +12,7 @@ env:
   GIT_USER: "amartcs"
   GIT_EMAIL: "amarsingh@tcsc.om"
   WORKFLOW_FILE: "integration-check.yml"
-  SCAN_BRANCH="semiannual-scan"
+  SCAN_BRANCH: "semiannual-scan"
 
 
 jobs:
