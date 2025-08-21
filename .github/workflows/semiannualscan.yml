@@ -92,25 +92,36 @@ jobs:
               max_checks=2
               count=0
 
-              while [[ $count -lt $max_checks ]]; do
-                # Get latest workflow run
-                response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
-                  "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1")
+              while true; do
+              # Get latest workflow run
+              response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
+                "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1")
 
-                status=$(echo "$response" | jq -r '.workflow_runs[0].status')
-                conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
+              status=$(echo "$response" | jq -r '.workflow_runs[0].status')
+              conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
 
-                echo "⏳ Workflow status: $status (conclusion: $conclusion)"
+              echo "⏳ Workflow status: $status (conclusion: $conclusion)"
 
-                if [[ "$status" == "completed" ]]; then
-                  echo "✅ Workflow finished with conclusion: $conclusion"
+              if [[ "$status" == "completed" ]]; then
+                echo "✅ Workflow finished with conclusion: $conclusion"
+                exit 0
+              elif [[ "$status" == "in_progress" || "$status" == "queued" ]]; then
+                echo "🔄 Workflow is running (status: $status). Waiting 30s..."
+                sleep 30
+                continue
+              fi
+
+              # If no workflow is found or status is null
+              if [[ "$status" == "null" ]]; then
+                count=$((count + 1))
+                echo "⚠️ No workflow run found yet. Retry $count/$max_checks..."
+                if [[ $count -ge $max_checks ]]; then
+                  echo "❌ Workflow did not start after $max_checks checks."
                   exit 0
                 fi
-
-                count=$((count + 1))
-                echo "🔄 Still running... waiting 30s before checking again. (Attempt $count/$max_checks)"
                 sleep 30
-              done
+              fi
+            done
 
               # Clean up cloned repo
               cd ..
