@@ -56,75 +56,81 @@ jobs:
 
           echo "Processing $repo..."
 
-          {
-            default_branch=$(gh repo view $ORG_NAME/$repo --json defaultBranchRef -q '.defaultBranchRef.name')
-            echo "Default branch for $repo is $default_branch"
+          # Error handling: Continue on error
+            {
+              # Get the default branch of the repository
+              default_branch=$(gh repo view $ORG_NAME/$repo --json defaultBranchRef -q '.defaultBranchRef.name')
+              echo "Default branch for $repo is $default_branch"
 
-            gh repo clone $ORG_NAME/$repo
-            cd $repo
+              # Clone the repository
+              gh repo clone $ORG_NAME/$repo
+              cd $repo
 
-            git config --global user.email "${GIT_EMAIL}"
-            git config --global user.name "${GIT_USER}"
-            git remote set-url origin https://x-access-token:${GITHUB_ACCESS_TOKEN}@${GITHUB_URL}/$ORG_NAME/$repo.git
+              # Setup Git user
+              git config --global user.email "${GIT_EMAIL}"
+              git config --global user.name "${GIT_USER}"
+              git remote set-url origin https://x-access-token:${GITHUB_ACCESS_TOKEN}@${GITHUB_URL}/$ORG_NAME/$repo.git
 
-            git checkout -b semiannual-update
-            echo "Semiannual update - $(date)" >> README.md
-            git add README.md
-            git commit -m "Semiannual update"
+              # Create a new branch
+              git checkout -b semiannual-update
 
-            git push origin --delete semiannual-update || true
-            git push origin semiannual-update --force
+              # Make changes to files (e.g., update README or add a version tag)
+              echo "Semiannual update - $(date)" >> README.md
+              git add README.md
+              git commit -m "Semiannual update"
 
-            # Create PR and capture PR URL
-            pr_url=$(gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base "$default_branch" --head "semiannual-update")
-            echo "Created PR: $pr_url"
+              # Remove the remote branch if it exists
+              git push origin --delete semiannual-update || true
 
-            # Poll workflow status until Integration build completes
-            BRANCH="semiannual-update"
-            max_checks=5
-            count=0
+              # Push the branch to the repository
+              git push origin semiannual-update --force
 
-            while true; do
-              response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
-                "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1")
+              # Create the PR, using the default branch as base
+              gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base $default_branch --head semiannual-update
 
-              status=$(echo "$response" | jq -r '.workflow_runs[0].status')
-              conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
+              # Poll workflow status until Integration build completes
+              BRANCH="semiannual-update"
+              max_checks=5
+              count=0
 
-              echo "⏳ Workflow status: $status (conclusion: $conclusion)"
+              while true; do
+                response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
+                  "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1")
 
-              if [[ "$status" == "completed" ]]; then
-                echo "✅ Workflow finished with conclusion: $conclusion"
-                break
-              elif [[ "$status" == "in_progress" || "$status" == "queued" ]]; then
-                echo "🔄 Workflow is running (status: $status). Waiting 30s..."
-                sleep 30
-                continue
-              fi
+                status=$(echo "$response" | jq -r '.workflow_runs[0].status')
+                conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
 
-              if [[ "$status" == "null" ]]; then
-                count=$((count + 1))
-                echo "⚠️ No workflow run found yet. Retry $count/$max_checks..."
-                if [[ $count -ge $max_checks ]]; then
-                  echo "❌ Workflow did not start after $max_checks checks."
+                echo "⏳ Workflow status: $status (conclusion: $conclusion)"
+
+                if [[ "$status" == "completed" ]]; then
+                  echo "✅ Workflow finished with conclusion: $conclusion"
                   break
+                elif [[ "$status" == "in_progress" || "$status" == "queued" ]]; then
+                  echo "🔄 Workflow is running (status: $status). Waiting 30s..."
+                  sleep 30
+                  continue
                 fi
-                sleep 30
-              fi
-            done
 
-            # Clean up cloned repo
-            cd ..
-            rm -rf $repo
+                if [[ "$status" == "null" ]]; then
+                  count=$((count + 1))
+                  echo "⚠️ No workflow run found yet. Retry $count/$max_checks..."
+                  if [[ $count -ge $max_checks ]]; then
+                    echo "❌ Workflow did not start after $max_checks checks."
+                    break
+                  fi
+                  sleep 30
+                fi
+               done
 
-          } || {
-            echo "❌ Failed to process $repo, storing in $FAILED_REPOS_FILE."
-            echo "$repo" >> $FAILED_REPOS_FILE
-            cd ..
-            rm -rf $repo
-            continue
-          }
-        done
+              cd ..
+              rm -rf $repo # Clean up
+
+            } || {
+              echo "Failed to process $repo, storing in $FAILED_REPOS_FILE."
+              echo "$repo" >> $FAILED_REPOS_FILE
+            }
+
+          done           
 
 
       - name: Display Failed repo list
