@@ -12,8 +12,8 @@ env:
   GIT_USER: "amartcs"
   GIT_EMAIL: "amarsingh@tcsc.om"
   WORKFLOW_FILE: "integration-check.yml"
-  
-  
+
+
 jobs:
   create-pr:
     runs-on: ubuntu-latest
@@ -88,24 +88,29 @@ jobs:
               # echo "Commit SHA for PR: $sha"
 
               # Poll workflow status until Integration build completes
-              while true; do
-              # Get latest workflow run
-              response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
-                "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=semiannual-update&per_page=1")
+              BRANCH="semiannual-update"                     # Branch to check
+              max_checks=2
+              count=0
 
-              status=$(echo "$response" | jq -r '.workflow_runs[0].status')
-              conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
+              while [[ $count -lt $max_checks ]]; do
+                # Get latest workflow run
+                response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                  "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1")
 
-              echo "⏳ Workflow status: $status (conclusion: $conclusion)"
+                status=$(echo "$response" | jq -r '.workflow_runs[0].status')
+                conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
 
-              if [[ "$status" == "completed" ]]; then
-                echo "✅ Workflow finished with conclusion: $conclusion"
-                break
-              fi
+                echo "⏳ Workflow status: $status (conclusion: $conclusion)"
 
-              echo "🔄 Still running... waiting 30s before checking again."
-              sleep 30
-            done
+                if [[ "$status" == "completed" ]]; then
+                  echo "✅ Workflow finished with conclusion: $conclusion"
+                  exit 0
+                fi
+
+                count=$((count + 1))
+                echo "🔄 Still running... waiting 30s before checking again. (Attempt $count/$max_checks)"
+                sleep 30
+              done
 
               # Clean up cloned repo
               cd ..
