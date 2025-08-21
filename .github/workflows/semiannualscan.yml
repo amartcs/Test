@@ -11,6 +11,8 @@ env:
   ORG_NAME: "amartcs"
   GIT_USER: "amartcs"
   GIT_EMAIL: "amarsingh@tcsc.om"
+  workflow_file: "integration-check.yml"
+  
   
 jobs:
   create-pr:
@@ -75,52 +77,36 @@ jobs:
 
               # Create PR and capture PR URL
               pr_url=$(gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base "$default_branch" --head "semiannual-update")
-              echo "Created PR: $pr_url"
 
+              echo "Created PR: $pr_url"
               # Get PR number
               pr_number=$(gh pr view $pr_url --json number -q '.number')
               echo "PR number: $pr_number"
-
-              # Get commit SHA of the PR head
-              sha=$(gh pr view $pr_number --json headRefOid -q '.headRefOid')
-              echo "Commit SHA for PR: $sha"
+              sleep 30
+              # # Get commit SHA of the PR head
+              # sha=$(gh pr view $pr_number --json headRefOid -q '.headRefOid')
+              # echo "Commit SHA for PR: $sha"
 
               # Poll workflow status until Integration build completes
-              echo "Waiting for 'Integration build' workflow run to complete for $repo..."
+              while true; do
+              # Get latest workflow run
+              response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
+                "https://api.github.com/repos/$ORG_NAME/$REPO/actions/workflows/$WORKFLOW_FILE/runs?branch=semiannual-update&per_page=1")
 
-              attempts=0
-              max_attempts=5
-              status=""
-              conclusion=""
+              status=$(echo "$response" | jq -r '.workflow_runs[0].status')
+              conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
 
-              while [[ "$status" != "completed" && $attempts -lt $max_attempts ]]; do
-                sleep 30
-                attempts=$((attempts+1))
+              echo "⏳ Workflow status: $status (conclusion: $conclusion)"
 
-                run_info=$(curl -s -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
-                  "https://api.github.com/repos/${ORG_NAME}/${repo}/actions/workflows/integration-build.yml/runs?event=pull_request&branch=semiannual-update")
-
-                run_count=$(echo "$run_info" | jq '.workflow_runs | length')
-                if [[ "$run_count" -eq 0 ]]; then
-                  echo "Integration build run not found yet (attempt $attempts/$max_attempts)"
-                  continue
-                fi
-
-                status=$(echo "$run_info" | jq -r '.workflow_runs[0].status')
-                conclusion=$(echo "$run_info" | jq -r '.workflow_runs[0].conclusion')
-                echo "Integration build → Status: $status | Conclusion: $conclusion"
-              done
-
-              if [[ "$status" != "completed" ]]; then
-                echo "Integration build did not complete after $max_attempts checks. Skipping $repo."
-                echo "$repo" >> ../$FAILED_REPOS_FILE
-              elif [[ "$conclusion" != "success" ]]; then
-                echo "Integration build failed for $repo ❌"
-                echo "$repo" >> ../$FAILED_REPOS_FILE
-              else
-                echo "Integration build succeeded for $repo ✅"
+              if [[ "$status" == "completed" ]]; then
+                echo "✅ Workflow finished with conclusion: $conclusion"
+                break
               fi
-              
+
+              echo "🔄 Still running... waiting 30s before checking again."
+              sleep 30
+            done
+
               # Clean up cloned repo
               cd ..
               rm -rf $repo
