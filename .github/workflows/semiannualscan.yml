@@ -86,7 +86,7 @@ jobs:
               # # Get commit SHA of the PR head
               # sha=$(gh pr view $pr_number --json headRefOid -q '.headRefOid')
               # echo "Commit SHA for PR: $sha"
-
+              echo "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1"
               # Poll workflow status until Integration build completes
               BRANCH="semiannual-update"                     # Branch to check
               max_checks=2
@@ -94,7 +94,7 @@ jobs:
 
               while [[ $count -lt $max_checks ]]; do
                 # Get latest workflow run
-                response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
                   "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$BRANCH&per_page=1")
 
                 status=$(echo "$response" | jq -r '.workflow_runs[0].status')
