@@ -104,6 +104,7 @@ jobs:
                 run_id=$(echo "$response" | jq -r ".workflow_runs[] | select(.head_sha==\"$commit_sha\") | .id" | head -n 1)
                 status=$(echo "$response" | jq -r ".workflow_runs[] | select(.head_sha==\"$commit_sha\") | .status" | head -n 1)
                 conclusion=$(echo "$response" | jq -r ".workflow_runs[] | select(.head_sha==\"$commit_sha\") | .conclusion" | head -n 1)
+                workflow_name=$(echo "$response" | jq -r ".workflow_runs[] | select(.head_sha==\"$commit_sha\") | .name" | head -n 1)
 
                 if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
                   count=$((count+1))
@@ -116,18 +117,19 @@ jobs:
                   continue
                 fi
 
-                echo "⏳ Workflow run $run_id status: $status (conclusion: $conclusion)"
+                echo "⏳ Workflow '$workflow_name' (run $run_id) status: $status (conclusion: $conclusion)"
 
                 if [[ "$status" == "completed" ]]; then
-                  echo "✅ Workflow finished with conclusion: $conclusion"
+                  echo "✅ Workflow '$workflow_name' finished with conclusion: $conclusion"
                   break
                 elif [[ "$status" == "in_progress" || "$status" == "queued" ]]; then
-                  echo "🔄 Workflow is running (status: $status). Waiting 30s..."
+                  echo "🔄 Workflow '$workflow_name' is running (status: $status). Waiting 30s..."
                   sleep 30
                   continue
                 fi
 
               done
+
 
               cd ..
               rm -rf $repo # Clean up
