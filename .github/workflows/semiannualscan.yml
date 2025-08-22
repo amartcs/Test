@@ -35,7 +35,7 @@ jobs:
         run: |
           echo "${GITHUB_ACCESS_TOKEN}" | gh auth login --hostname "${GITHUB_URL}" --with-token
 
-      - name: Get all repositories and create PRs
+            - name: Get all repositories and create PRs
         run: |
           SKIP_REPOS_FILE="skip_repos.txt"
           FAILED_REPOS_FILE="failed_repos.txt"
@@ -57,8 +57,7 @@ jobs:
 
           echo "Processing $repo..."
 
-          # Error handling: Continue on error
-            {
+          {
               # Get the default branch of the repository
               default_branch=$(gh repo view $ORG_NAME/$repo --json defaultBranchRef -q '.defaultBranchRef.name')
               echo "Default branch for $repo is $default_branch"
@@ -75,7 +74,7 @@ jobs:
               # Create a new branch
               git checkout -b $SCAN_BRANCH
 
-              # Make changes to files (e.g., update README or add a version tag)
+              # Make changes to files
               echo "$SCAN_BRANCH-$(date)" >> README.md
               git add README.md
               git commit -m "$SCAN_BRANCH"
@@ -86,9 +85,22 @@ jobs:
               # Push the branch to the repository
               git push origin $SCAN_BRANCH --force
 
-              # Create the PR, using the default branch as base
+              # Create the PR
               gh pr create --title "Semiannual Update" --body "Automated semiannual update" --base $default_branch --head $SCAN_BRANCH
               sleep 60
+
+              # 🔍 Auto-detect matching workflow file
+              workflow_file=$(gh workflow list --json name,path --jq '.[] | select(.path | test("integration-.*\\.yml")) | .path' | head -n 1)
+
+              if [ -z "$workflow_file" ]; then
+                echo "❌ No workflow found matching integration-*.yml in $repo"
+                echo "$repo" >> ../$FAILED_REPOS_FILE
+                cd ..
+                rm -rf $repo
+                continue
+              fi
+
+              echo "✅ Found workflow: $workflow_file"
 
               # Poll workflow status until Integration build completes              
               max_checks=5
@@ -96,7 +108,7 @@ jobs:
 
               while true; do
                 response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
-                  "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$WORKFLOW_FILE/runs?branch=$SCAN_BRANCH&per_page=1")
+                  "https://api.github.com/repos/$ORG_NAME/$repo/actions/workflows/$workflow_file/runs?branch=$SCAN_BRANCH&per_page=1")
 
                 status=$(echo "$response" | jq -r '.workflow_runs[0].status')
                 conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion')
@@ -121,7 +133,7 @@ jobs:
                   fi
                   sleep 30
                 fi
-               done
+              done
 
               cd ..
               rm -rf $repo # Clean up
@@ -131,7 +143,7 @@ jobs:
               echo "$repo" >> $FAILED_REPOS_FILE
             }
 
-          done           
+          done
 
 
       - name: Display Failed repo list
