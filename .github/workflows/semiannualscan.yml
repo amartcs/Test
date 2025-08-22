@@ -100,6 +100,8 @@ jobs:
                 continue
               fi
 
+              # Strip the path, keep only filename
+              workflow_file=$(basename "$workflow_file")
               echo "✅ Found workflow: $workflow_file"
 
               # Poll workflow status until Integration build completes              
