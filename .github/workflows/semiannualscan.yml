@@ -35,7 +35,7 @@ jobs:
         run: |
           echo "${GITHUB_ACCESS_TOKEN}" | gh auth login --hostname "${GITHUB_URL}" --with-token
 
-            - name: Get all repositories and create PRs
+      - name: Get all repositories and create PRs
         run: |
           SKIP_REPOS_FILE="skip_repos.txt"
           FAILED_REPOS_FILE="failed_repos.txt"
