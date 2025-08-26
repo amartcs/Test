@@ -64,7 +64,7 @@ jobs:
               cd $repo
 
               # Check if an integration-* workflow exists
-              workflow_file=$(gh workflow list --json name,path --jq '.[] | select(.path | test("integration-.*\\.yml")) | .path' | head -n 1 || true)
+              workflow_file=$(gh workflow list --json name,path --jq '.[] | select(.path | test("integration-.*\\.ya?ml$")) | .path' | head -n 1 || true)
 
               if [ -z "$workflow_file" ]; then
                 echo "⚠️ No matching integration-* workflow found in $repo, skipping PR creation."
