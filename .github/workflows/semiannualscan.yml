@@ -6,11 +6,11 @@ on:
   #  - cron: '10 06 5 2,7 *'  # Every 6 months at 6 AM UTC (5th of Feb and July)
 
 env:
-  GITHUB_URL: "github.deutsche-boerse.de"
+  GITHUB_URL: "github.com"
   GITHUB_ACCESS_TOKEN: "${{ secrets.ACTION_GITHUB_ACCESS_TOKEN }}"
-  ORG_NAME: "ccfc"
-  GIT_USER: "${{ secrets.GIT_USERNAME }}"
-  GIT_EMAIL: "${{ secrets.GIT_EMAIL }}"
+  ORG_NAME: "amartcs"  
+  GIT_USER: "amartcs"
+  GIT_EMAIL: "amarsingh@tcsc.om"
   SCAN_BRANCH: "semiannual-scan"
 
 jobs:
