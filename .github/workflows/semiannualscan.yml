@@ -48,11 +48,11 @@ jobs:
           # Calculate cutoff timestamp (90 days ago)
           cutoff_date=$(date -d "90 days ago" +%s)
 
-          echo "🔎 Fetching repositories updated in the last 90 days..."
+          echo "🔎 Fetching repositories last updated 90+ days ago..."
           repos=$(gh repo list $ORG_NAME --limit 500 --json name,updatedAt -q \
-            ".[] | select((.updatedAt | fromdateiso8601) > $cutoff_date) | .name")
+            ".[] | select((.updatedAt | fromdateiso8601) < $cutoff_date) | .name")
 
-          echo "📂 Repositories to process:"
+          echo "📂 Repositories to process (inactive for 90+ days):"
           echo "$repos" | tr ' ' '\n'
 
           for repo in $repos; do
