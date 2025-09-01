@@ -44,20 +44,29 @@ jobs:
           fi
 
           mapfile -t skip_repos < $SKIP_REPOS_FILE
-          repos=$(gh repo list $ORG_NAME --limit 500 --json name -q '.[].name')
+
+          # Calculate cutoff timestamp (90 days ago)
+          cutoff_date=$(date -d "90 days ago" +%s)
+
+          echo "🔎 Fetching repositories updated in the last 90 days..."
+          repos=$(gh repo list $ORG_NAME --limit 500 --json name,updatedAt -q \
+            ".[] | select((.updatedAt | fromdateiso8601) > $cutoff_date) | .name")
+
+          echo "📂 Repositories to process:"
+          echo "$repos" | tr ' ' '\n'
 
           for repo in $repos; do
             if [[ " ${skip_repos[@]} " =~ " $repo " ]]; then
-              echo "Skipping $repo (listed in skip_repos.txt)"
+              echo "⏭️  Skipping $repo (listed in skip_repos.txt)"
               continue
             fi
 
-            echo "Processing $repo..."
+            echo "⚡ Processing $repo..."
 
             {
               # Get the default branch of the repository
               default_branch=$(gh repo view $ORG_NAME/$repo --json defaultBranchRef -q '.defaultBranchRef.name')
-              echo "Default branch for $repo is $default_branch"
+              echo "   Default branch for $repo is $default_branch"
 
               # Clone the repository
               gh repo clone $ORG_NAME/$repo
@@ -108,7 +117,7 @@ jobs:
 
               while true; do
                 response=$(curl -s -H "Authorization: token $GITHUB_ACCESS_TOKEN" \
-                  "https://api.github.com/repos/$ORG_NAME/$repo/actions/runs?branch=$SCAN_BRANCH&per_page=5")
+                  "${GITHUB_API_URL}/repos/$ORG_NAME/$repo/actions/runs?branch=$SCAN_BRANCH&per_page=5")
 
                 run_id=$(echo "$response" | jq -r ".workflow_runs[] | select(.head_sha==\"$commit_sha\") | .id" | head -n 1)
                 status=$(echo "$response" | jq -r ".workflow_runs[] | select(.head_sha==\"$commit_sha\") | .status" | head -n 1)
@@ -139,11 +148,11 @@ jobs:
               done  
 
               cd ..
-              echo "Cleaning up repository $repo..."
+              echo "🧹 Cleaning up repository $repo..."
               rm -rf $repo
 
             } || {
-              echo "Failed to process $repo, storing in $FAILED_REPOS_FILE."
+              echo "❌ Failed to process $repo, storing in $FAILED_REPOS_FILE."
               echo "$repo" >> $FAILED_REPOS_FILE
             }
           done
